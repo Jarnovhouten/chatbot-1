@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import sagemaker
 import boto3
-from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_u
+from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_uri
 
 # Load credentials from Streamlit secrets
 try:
