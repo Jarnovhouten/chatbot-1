@@ -6,8 +6,9 @@ from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_ur
 
 # Load credentials from Streamlit secrets
 try:
-    aws_access_key = st.secrets["AWS_ACCESS_KEY_ID"]
-    aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
+    #aws_access_key = st.secrets["AWS_ACCESS_KEY_ID"]
+    #aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
+    arn = st.secrets["ROLE_ARN"]
     aws_region = st.secrets["AWS_DEFAULT_REGION"] 
     hf_token = st.secrets["HF_TOKEN"]
 except:
@@ -29,7 +30,7 @@ st.write(
 )
 
 password = st.text_input("Password", type="password")
-if not password == "passwordamus":
+if not password == st.secrets["PASS"]:
     st.info("Please enter the password to continue.", icon="🗝️")
 else:
     try:
