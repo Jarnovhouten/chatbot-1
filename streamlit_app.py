@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import sagemaker
 import boto3
-from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_uri
+from sagemaker.huggingface import HuggingFaceModel
 
 # Load credentials from Streamlit secrets
 try:
@@ -31,12 +31,8 @@ password = st.text_input("Password", type="password")
 if not password == st.secrets["PASS"]:
     st.info("Please enter the password to continue.", icon="🗝️")
 else:
-    try:
-        role = arn  # Use the ARN from secrets
-    except ValueError:
-        iam = boto3.client("iam")
-        role = iam.get_role(RoleName="sagemaker_execution_role")["Role"]["Arn"]
-
+    role = arn  # Use the ARN from secrets
+    
     # Hub Model configuration. https://huggingface.co/models
     hub = {
         "HF_MODEL_ID": "meta-llama/Meta-Llama-3-8B",
@@ -49,23 +45,19 @@ else:
     }
 
     region = boto3.Session().region_name
-    image_uri = f"763104351884.dkr.ecr.{region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.2-optimum0.0.27-neuronx-py310-ubuntu22.04"
 
     # create Hugging Face Model Class
     huggingface_model = HuggingFaceModel(
-        image_uri=image_uri,
         env=hub,
         role=role,
     )
 
-    # deploy model to SageMaker Inference
+   # deploy model to SageMaker Inference
     predictor = huggingface_model.deploy(
-        initial_instance_count=1,
-        instance_type="ml.inf2.xlarge",
-        container_startup_health_check_timeout=1800,
-        volume_size=512,
+    initial_instance_count=1,
+    instance_type="ml.m5.xlarge"
     )
-
+    
     # Create a session state variable to store the chat messages
     if "messages" not in st.session_state:
         st.session_state.messages = []
