@@ -9,7 +9,7 @@ from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_ur
 #aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
 arn = st.secrets["ROLE_ARN"]
 aws_region = st.secrets["AWS_DEFAULT_REGION"] 
-hf_token = st.secrets["HF_TOKEN"
+hf_token = st.secrets["HF_TOKEN"]
 
 # Configure AWS credentials
 boto3.setup_default_session(
