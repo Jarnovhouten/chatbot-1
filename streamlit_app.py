@@ -5,15 +5,11 @@ import boto3
 from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_uri
 
 # Load credentials from Streamlit secrets
-try:
-    #aws_access_key = st.secrets["AWS_ACCESS_KEY_ID"]
-    #aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
-    arn = st.secrets["ROLE_ARN"]
-    aws_region = st.secrets["AWS_DEFAULT_REGION"] 
-    hf_token = st.secrets["HF_TOKEN"]
-except:
-    st.error("Failed to load credentials from Streamlit secrets")
-    st.stop()
+#aws_access_key = st.secrets["AWS_ACCESS_KEY_ID"]
+#aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
+arn = st.secrets["ROLE_ARN"]
+aws_region = st.secrets["AWS_DEFAULT_REGION"] 
+hf_token = st.secrets["HF_TOKEN"
 
 # Configure AWS credentials
 boto3.setup_default_session(
