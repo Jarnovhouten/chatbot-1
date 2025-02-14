@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import sagemaker
 import boto3
-from sagemaker.huggingface import HuggingFaceModel
+from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_uri
 
 # Load credentials from Streamlit secrets
 try:
@@ -48,6 +48,7 @@ else:
 
     # create Hugging Face Model Class
     huggingface_model = HuggingFaceModel(
+        image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
         env=hub,
         role=role,
     )
