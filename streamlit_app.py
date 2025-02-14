@@ -17,8 +17,6 @@ except:
 
 # Configure AWS credentials
 boto3.setup_default_session(
-    aws_access_key_id=aws_access_key,
-    aws_secret_access_key=aws_secret_key,
     region_name=aws_region
 )
 
@@ -34,7 +32,7 @@ if not password == st.secrets["PASS"]:
     st.info("Please enter the password to continue.", icon="🗝️")
 else:
     try:
-        role = sagemaker.get_execution_role()
+        role = arn  # Use the ARN from secrets
     except ValueError:
         iam = boto3.client("iam")
         role = iam.get_role(RoleName="sagemaker_execution_role")["Role"]["Arn"]
