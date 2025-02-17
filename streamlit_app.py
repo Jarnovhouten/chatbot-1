@@ -38,10 +38,18 @@ else:
 
     region = boto3.Session().region_name
     endpoint_name = "llama3-chatbot-endpoint"
-
-    # Check if endpoint already exists
+    endpoint_config_name = "llama3-chatbot-endpoint-config"
+    
+    # Check if endpoint configuration exists
     sagemaker_client = boto3.client('sagemaker')
     
+    def endpoint_config_exists(config_name):
+        try:
+            sagemaker_client.describe_endpoint_config(EndpointConfigName=config_name)
+            return True
+        except sagemaker_client.exceptions.ClientError:
+            return False
+
     def get_endpoint_status():
         try:
             response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
@@ -53,7 +61,7 @@ else:
     endpoint_status = get_endpoint_status()
 
     if endpoint_status is None:
-        # Endpoint doesn't exist, create new one
+        # Create data capture configuration
         data_capture_config = sagemaker.model_monitor.DataCaptureConfig(
             enable_capture=True,
             destination_s3_uri="s3://experimental-data-from-user-study/test/",
@@ -61,16 +69,24 @@ else:
             sampling_percentage=100
         )
         
-        huggingface_model = HuggingFaceModel(
-            image_uri=get_huggingface_llm_image_uri("huggingface", version="3.0.1"),
-            env=hub,
-            role=role,
-        )
+        # Create endpoint config if it doesn't exist
+        if not endpoint_config_exists(endpoint_config_name):
+            huggingface_model = HuggingFaceModel(
+                image_uri=get_huggingface_llm_image_uri("huggingface", version="3.0.1"),
+                env=hub,
+                role=role,
+            )
+            huggingface_model.create_endpoint_config(
+                name=endpoint_config_name,
+                data_capture_config=data_capture_config
+            )
+        
+        # Deploy endpoint
         predictor = huggingface_model.deploy(
             initial_instance_count=1,
             instance_type="ml.m5.xlarge",
             endpoint_name=endpoint_name,
-            data_capture_config=data_capture_config
+            endpoint_config_name=endpoint_config_name
         )
     else:
         if endpoint_status == 'InService':
@@ -134,5 +150,3 @@ else:
         with st.chat_message("assistant"):
             st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
-
-
