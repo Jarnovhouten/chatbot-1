@@ -53,6 +53,7 @@ else:
     predictor = huggingface_model.deploy(
     initial_instance_count=1,
     instance_type="ml.m5.xlarge"
+    endpoint_name="llama3-chatbot-endpoint"
     )
     
     # Create a session state variable to store the chat messages
