@@ -52,7 +52,7 @@ else:
    # deploy model to SageMaker Inference
     predictor = huggingface_model.deploy(
     initial_instance_count=1,
-    instance_type="ml.m5.xlarge"
+    instance_type="ml.m5.xlarge",
     endpoint_name="llama3-chatbot-endpoint"
     )
     
