@@ -29,7 +29,7 @@ if not password == st.secrets["PASS"]:
 else:
     role = arn  # Use the ARN from secrets
     
-    # Hub Model configuration. https://huggingface.co/models
+    # Hub Model configuration
     hub = {
         "HF_MODEL_ID": "meta-llama/Meta-Llama-3-8B",
         "HF_NUM_CORES": "2",
@@ -41,20 +41,43 @@ else:
     }
 
     region = boto3.Session().region_name
+    endpoint_name = "llama3-chatbot-endpoint"
 
-    # create Hugging Face Model Class
-    huggingface_model = HuggingFaceModel(
-        image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
-        env=hub,
-        role=role,
-    )
-
-   # deploy model to SageMaker Inference
-    predictor = huggingface_model.deploy(
-    initial_instance_count=1,
-    instance_type="ml.m5.xlarge",
-    endpoint_name="llama3-chatbot-endpoint"
-    )
+    # Check if endpoint already exists
+    sagemaker_client = boto3.client('sagemaker')
+    try:
+        response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
+        if response['EndpointStatus'] == 'InService':
+            # If endpoint exists and is running, create predictor without deploying
+            predictor = sagemaker.predictor.Predictor(
+                endpoint_name=endpoint_name,
+                sagemaker_session=sagemaker.Session()
+            )
+        else:
+            # If endpoint exists but isn't in service, delete it and create new one
+            sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
+            huggingface_model = HuggingFaceModel(
+                image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
+                env=hub,
+                role=role,
+            )
+            predictor = huggingface_model.deploy(
+                initial_instance_count=1,
+                instance_type="ml.m5.xlarge",
+                endpoint_name=endpoint_name
+            )
+    except sagemaker_client.exceptions.ClientError:
+        # If endpoint doesn't exist, create it
+        huggingface_model = HuggingFaceModel(
+            image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
+            env=hub,
+            role=role,
+        )
+        predictor = huggingface_model.deploy(
+            initial_instance_count=1,
+            instance_type="ml.m5.xlarge",
+            endpoint_name=endpoint_name
+        )
     
     # Create a session state variable to store the chat messages
     if "messages" not in st.session_state:
