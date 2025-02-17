@@ -24,6 +24,18 @@ if not password == st.secrets["PASS"]:
     st.info("Please enter the password to continue.", icon="🔑")
 else:
     role = arn  # Use the ARN from secrets
+
+    # Hub Model configuration
+    hub = {
+        "HF_MODEL_ID": "meta-llama/Meta-Llama-3-8B",
+        "HF_NUM_CORES": "2",
+        "HF_AUTO_CAST_TYPE": "fp16",
+        "MAX_BATCH_SIZE": "4",
+        "MAX_INPUT_TOKENS": "3686",
+        "MAX_TOTAL_TOKENS": "4096",
+        "HF_TOKEN": hf_token,
+    }
+
     region = boto3.Session().region_name
     endpoint_name = "llama3-chatbot-endpoint"
 
@@ -41,18 +53,14 @@ else:
     endpoint_status = get_endpoint_status()
 
     if endpoint_status is None:
-        # Hub Model configuration
-        hub = {
-        "HF_MODEL_ID": "meta-llama/Meta-Llama-3-8B",
-        "HF_NUM_CORES": "2",
-        "HF_AUTO_CAST_TYPE": "fp16",
-        "MAX_BATCH_SIZE": "4",
-        "MAX_INPUT_TOKENS": "3686",
-        "MAX_TOTAL_TOKENS": "4096",
-        "HF_TOKEN": hf_token,
-        }
-        
         # Endpoint doesn't exist, create new one
+        data_capture_config = sagemaker.model_monitor.DataCaptureConfig(
+            enable_capture=True,
+            destination_s3_uri="s3://experimental-data-from-user-study/test/",
+            capture_options=["Input", "Output"],
+            sampling_percentage=100
+        )
+        
         huggingface_model = HuggingFaceModel(
             image_uri=get_huggingface_llm_image_uri("huggingface", version="3.0.1"),
             env=hub,
@@ -61,7 +69,8 @@ else:
         predictor = huggingface_model.deploy(
             initial_instance_count=1,
             instance_type="ml.m5.xlarge",
-            endpoint_name=endpoint_name
+            endpoint_name=endpoint_name,
+            data_capture_config=data_capture_config
         )
     else:
         if endpoint_status == 'InService':
