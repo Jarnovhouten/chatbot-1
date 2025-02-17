@@ -5,16 +5,12 @@ import boto3
 from sagemaker.huggingface import HuggingFaceModel, get_huggingface_llm_image_uri
 
 # Load credentials from Streamlit secrets
-#aws_access_key = st.secrets["AWS_ACCESS_KEY_ID"]
-#aws_secret_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
 arn = st.secrets["ROLE_ARN"]
-aws_region = st.secrets["AWS_DEFAULT_REGION"] 
+aws_region = st.secrets["AWS_DEFAULT_REGION"]
 hf_token = st.secrets["HF_TOKEN"]
 
 # Configure AWS credentials
-boto3.setup_default_session(
-    region_name=aws_region
-)
+boto3.setup_default_session(region_name=aws_region)
 
 # Show title and description.
 st.title("💬 Chatbot")
@@ -25,12 +21,28 @@ st.write(
 
 password = st.text_input("Password", type="password")
 if not password == st.secrets["PASS"]:
-    st.info("Please enter the password to continue.", icon="🗝️")
+    st.info("Please enter the password to continue.", icon="🔑")
 else:
     role = arn  # Use the ARN from secrets
+    region = boto3.Session().region_name
+    endpoint_name = "llama3-chatbot-endpoint"
+
+    # Check if endpoint already exists
+    sagemaker_client = boto3.client('sagemaker')
     
-    # Hub Model configuration
-    hub = {
+    def get_endpoint_status():
+        try:
+            response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
+            return response['EndpointStatus']
+        except sagemaker_client.exceptions.ClientError:
+            return None
+
+    # Check endpoint status
+    endpoint_status = get_endpoint_status()
+
+    if endpoint_status is None:
+        # Hub Model configuration
+        hub = {
         "HF_MODEL_ID": "meta-llama/Meta-Llama-3-8B",
         "HF_NUM_CORES": "2",
         "HF_AUTO_CAST_TYPE": "fp16",
@@ -38,38 +50,11 @@ else:
         "MAX_INPUT_TOKENS": "3686",
         "MAX_TOTAL_TOKENS": "4096",
         "HF_TOKEN": hf_token,
-    }
-
-    region = boto3.Session().region_name
-    endpoint_name = "llama3-chatbot-endpoint"
-
-    # Check if endpoint already exists
-    sagemaker_client = boto3.client('sagemaker')
-    try:
-        response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
-        if response['EndpointStatus'] == 'InService':
-            # If endpoint exists and is running, create predictor without deploying
-            predictor = sagemaker.predictor.Predictor(
-                endpoint_name=endpoint_name,
-                sagemaker_session=sagemaker.Session()
-            )
-        else:
-            # If endpoint exists but isn't in service, delete it and create new one
-            sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
-            huggingface_model = HuggingFaceModel(
-                image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
-                env=hub,
-                role=role,
-            )
-            predictor = huggingface_model.deploy(
-                initial_instance_count=1,
-                instance_type="ml.m5.xlarge",
-                endpoint_name=endpoint_name
-            )
-    except sagemaker_client.exceptions.ClientError:
-        # If endpoint doesn't exist, create it
+        }
+        
+        # Endpoint doesn't exist, create new one
         huggingface_model = HuggingFaceModel(
-            image_uri=get_huggingface_llm_image_uri("huggingface",version="3.0.1"),
+            image_uri=get_huggingface_llm_image_uri("huggingface", version="3.0.1"),
             env=hub,
             role=role,
         )
@@ -78,6 +63,35 @@ else:
             instance_type="ml.m5.xlarge",
             endpoint_name=endpoint_name
         )
+    else:
+        if endpoint_status == 'InService':
+            # Endpoint exists and is running, create predictor
+            predictor = sagemaker.predictor.Predictor(
+                endpoint_name=endpoint_name,
+                sagemaker_session=sagemaker.Session()
+            )
+        elif endpoint_status in ['OutOfService', 'Stopped']:
+            # Start the endpoint if it's stopped
+            try:
+                sagemaker_client.start_endpoint(EndpointName=endpoint_name)
+                waiter = sagemaker_client.get_waiter('endpoint_in_service')
+                waiter.wait(EndpointName=endpoint_name)
+                predictor = sagemaker.predictor.Predictor(
+                    endpoint_name=endpoint_name,
+                    sagemaker_session=sagemaker.Session()
+                )
+            except sagemaker_client.exceptions.ClientError as e:
+                print(f"Error starting endpoint: {str(e)}")
+                raise
+        else:
+            # Handle other states (Creating, Updating, RollingBack, etc.)
+            print(f"Endpoint is in {endpoint_status} state. Waiting for it to be InService...")
+            waiter = sagemaker_client.get_waiter('endpoint_in_service')
+            waiter.wait(EndpointName=endpoint_name)
+            predictor = sagemaker.predictor.Predictor(
+                endpoint_name=endpoint_name,
+                sagemaker_session=sagemaker.Session()
+            )
     
     # Create a session state variable to store the chat messages
     if "messages" not in st.session_state:
@@ -111,4 +125,5 @@ else:
         with st.chat_message("assistant"):
             st.markdown(response)
         st.session_state.messages.append({"role": "assistant", "content": response})
+
 
